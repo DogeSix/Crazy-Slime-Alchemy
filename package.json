@@ -1,0 +1,19 @@
+{
+  "name": "crazy-slime-lab",
+  "version": "1.0.0",
+  "description": "瘋狂史萊姆實驗室 (Crazy Slime Lab) - 結合 CSS 物理果凍特效與 Gemini AI 的互動合成遊戲",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "react",
+    "css-animation",
+    "slime-lab",
+    "gemini-api",
+    "interactive-game"
+  ],
+  "author": "Crazy Slime Lab Studio",
+  "license": "MIT"
+}

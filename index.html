@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🧪 瘋狂史萊姆實驗室 Crazy Slime Lab | AI 互動果凍合成遊戲</title>
+  <!-- Google Fonts: 圓潤科幻實驗室字體 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 & Babel Standalone -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans TC"', '"Fredoka"', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --slime-color: #38bdf8;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 15%, #2e1065 0%, #1e1b4b 45%, #090d16 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      overflow-x: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 實驗室背景網格與微光 */
+    .lab-grid-bg {
+      background-image: 
+        linear-gradient(to right, rgba(139, 92, 246, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(139, 92, 246, 0.07) 1px, transparent 1px);
+      background-size: 36px 36px;
+    }
+
+    /* =================================================================
+       1. 材料掉入鍋爐的 CSS 動畫 (Drop into Cauldron Animation)
+       ================================================================= */
+    @keyframes dropIntoCauldron {
+      0% {
+        transform: translate(var(--start-x, 0px), -170px) scale(0.5) rotate(-25deg);
+        opacity: 0;
+      }
+      18% {
+        transform: translate(calc(var(--start-x, 0px) * 0.65), -125px) scale(1.25) rotate(12deg);
+        opacity: 1;
+      }
+      75% {
+        transform: translate(calc(var(--start-x, 0px) * 0.1), 15px) scale(1.05) rotate(160deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(0px, 65px) scale(0.25) rotate(240deg);
+        opacity: 0;
+      }
+    }
+
+    .animate-ingredient-drop {
+      animation: dropIntoCauldron 0.68s cubic-bezier(0.45, 0, 0.85, 0.35) forwards;
+    }
+
+    /* 材料掉入瞬間的水花飛濺動畫 */
+    @keyframes splashExpand {
+      0% {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 0.95;
+      }
+      60% {
+        transform: translate(-50%, -65%) scale(1.35);
+        opacity: 0.75;
+      }
+      100% {
+        transform: translate(-50%, -80%) scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    .animate-splash-ring {
+      animation: splashExpand 0.55s ease-out forwards;
+    }
+
+    /* 鍋爐被材料投入時的輕微彈性下沉回彈 */
+    @keyframes cauldronImpactBounce {
+      0%, 100% { transform: scale(1, 1) translateY(0); }
+      35% { transform: scale(1.05, 0.94) translateY(6px); }
+      70% { transform: scale(0.98, 1.03) translateY(-3px); }
+    }
+
+    .animate-cauldron-impact {
+      animation: cauldronImpactBounce 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* =================================================================
+       2. 點擊『開始攪拌』：鍋爐劇烈晃動 3 秒的 CSS 動畫
+       ================================================================= */
+    @keyframes violentCauldronShake {
+      0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+      4%   { transform: translate(-14px, -6px) rotate(-7deg) scale(1.04, 0.96); }
+      8%   { transform: translate(15px, 4px) rotate(8deg) scale(0.96, 1.05); }
+      12%  { transform: translate(-16px, 6px) rotate(-9deg) scale(1.05, 0.95); }
+      16%  { transform: translate(14px, -8px) rotate(7deg) scale(0.95, 1.06); }
+      20%  { transform: translate(-18px, -4px) rotate(-10deg) scale(1.07, 0.93); }
+      24%  { transform: translate(18px, 7px) rotate(10deg) scale(0.94, 1.07); }
+      28%  { transform: translate(-15px, 8px) rotate(-8deg) scale(1.06, 0.94); }
+      32%  { transform: translate(16px, -6px) rotate(9deg) scale(0.95, 1.06); }
+      36%  { transform: translate(-20px, -5px) rotate(-11deg) scale(1.08, 0.92); }
+      40%  { transform: translate(19px, 8px) rotate(11deg) scale(0.92, 1.08); }
+      44%  { transform: translate(-17px, -9px) rotate(-9deg) scale(1.06, 0.94); }
+      48%  { transform: translate(20px, 5px) rotate(12deg) scale(0.93, 1.08); }
+      52%  { transform: translate(-22px, 7px) rotate(-12deg) scale(1.09, 0.91); }
+      56%  { transform: translate(21px, -8px) rotate(11deg) scale(0.92, 1.09); }
+      60%  { transform: translate(-19px, -6px) rotate(-10deg) scale(1.08, 0.93); }
+      64%  { transform: translate(18px, 9px) rotate(10deg) scale(0.94, 1.07); }
+      68%  { transform: translate(-21px, 5px) rotate(-11deg) scale(1.08, 0.92); }
+      72%  { transform: translate(17px, -7px) rotate(9deg) scale(0.95, 1.06); }
+      76%  { transform: translate(-16px, 8px) rotate(-8deg) scale(1.06, 0.94); }
+      80%  { transform: translate(15px, -5px) rotate(8deg) scale(0.96, 1.05); }
+      84%  { transform: translate(-14px, -4px) rotate(-7deg) scale(1.05, 0.95); }
+      88%  { transform: translate(12px, 5px) rotate(6deg) scale(0.97, 1.04); }
+      92%  { transform: translate(-10px, -3px) rotate(-5deg) scale(1.03, 0.97); }
+      96%  { transform: translate(6px, 2px) rotate(3deg) scale(0.99, 1.02); }
+      100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+    }
+
+    .animate-cauldron-violent-3s {
+      animation: violentCauldronShake 3s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+    }
+
+    /* 鍋爐內部液體波浪與氣泡動畫 */
+    @keyframes bubbleRise {
+      0% {
+        transform: translateY(20px) scale(0.4);
+        opacity: 0;
+      }
+      30% {
+        opacity: 0.85;
+      }
+      100% {
+        transform: translateY(-95px) scale(1.25);
+        opacity: 0;
+      }
+    }
+
+    .cauldron-bubble {
+      animation: bubbleRise var(--dur, 2.2s) ease-in infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes liquidWave {
+      0%, 100% { transform: translateX(-4%) rotate(-1deg) scaleY(1); }
+      50% { transform: translateX(4%) rotate(1.5deg) scaleY(1.06); }
+    }
+
+    .animate-liquid-surface {
+      animation: liquidWave 2.6s ease-in-out infinite;
+    }
+
+    /* =================================================================
+       3. 純 CSS 果凍般 Q 彈、持續蠕動與呼吸的水滴狀史萊姆
+          (Pure CSS Jelly Droplet Slime - Continuous Breathe & Wobble)
+       ================================================================= */
+    @keyframes slimeBreatheAndWobble {
+      0% {
+        /* 圓潤水滴狀：上方較尖圓、下方飽滿寬闊 */
+        border-radius: 50% 50% 46% 54% / 64% 62% 38% 36%;
+        transform: scale3d(1, 1, 1) translateY(0px) rotate(0deg);
+      }
+      20% {
+        border-radius: 54% 46% 51% 49% / 58% 66% 34% 42%;
+        transform: scale3d(1.07, 0.93, 1) translateY(5px) rotate(1.2deg);
+      }
+      40% {
+        border-radius: 46% 54% 44% 56% / 68% 58% 42% 32%;
+        transform: scale3d(0.94, 1.07, 1) translateY(-7px) rotate(-1.5deg);
+      }
+      60% {
+        border-radius: 52% 48% 53% 47% / 56% 60% 40% 44%;
+        transform: scale3d(1.09, 0.91, 1) translateY(7px) rotate(1.5deg);
+      }
+      80% {
+        border-radius: 48% 52% 47% 53% / 66% 64% 36% 34%;
+        transform: scale3d(0.96, 1.05, 1) translateY(-4px) rotate(-1deg);
+      }
+      100% {
+        border-radius: 50% 50% 46% 54% / 64% 62% 38% 36%;
+        transform: scale3d(1, 1, 1) translateY(0px) rotate(0deg);
+      }
+    }
+
+    /* 玩家點擊史萊姆時的果凍超 Q 彈壓扁回彈動畫 */
+    @keyframes slimeJellyPoke {
+      0%   { transform: scale3d(1, 1, 1); }
+      20%  { transform: scale3d(1.26, 0.74, 1) translateY(16px); }
+      40%  { transform: scale3d(0.84, 1.18, 1) translateY(-14px); }
+      55%  { transform: scale3d(1.14, 0.87, 1) translateY(8px); }
+      70%  { transform: scale3d(0.93, 1.08, 1) translateY(-5px); }
+      85%  { transform: scale3d(1.04, 0.96, 1) translateY(2px); }
+      100% { transform: scale3d(1, 1, 1) translateY(0); }
+    }
+
+    .slime-droplet-body {
+      position: relative;
+      width: 230px;
+      height: 215px;
+      background-color: var(--slime-color, #38bdf8);
+      /* 多層果凍光學折射：頂部清透高光、中間飽滿色澤、底部深邃果凍立體陰影 */
+      background-image: 
+        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.18) 22%, transparent 48%),
+        radial-gradient(circle at 70% 78%, rgba(0, 0, 0, 0.28) 0%, transparent 55%),
+        linear-gradient(165deg, rgba(255, 255, 255, 0.35) 0%, transparent 45%, rgba(0, 0, 0, 0.25) 100%);
+      border-radius: 50% 50% 46% 54% / 64% 62% 38% 36%;
+      box-shadow:
+        inset 12px 16px 28px rgba(255, 255, 255, 0.65),
+        inset -14px -20px 32px rgba(0, 0, 0, 0.32),
+        inset 0px -8px 18px rgba(255, 255, 255, 0.35),
+        0 20px 45px -8px var(--slime-glow, rgba(56, 189, 248, 0.55)),
+        0 6px 20px rgba(0, 0, 0, 0.4);
+      animation: slimeBreatheAndWobble 3.4s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+      transform-origin: center bottom;
+      cursor: pointer;
+      transition: background-color 0.6s ease, box-shadow 0.6s ease;
+      backdrop-filter: blur(4px);
+    }
+
+    /* 透明膠水基底：強化果凍晶瑩剔透感 */
+    .slime-base-clear {
+      opacity: 0.92;
+      box-shadow:
+        inset 15px 20px 34px rgba(255, 255, 255, 0.85),
+        inset -12px -18px 28px rgba(0, 0, 0, 0.22),
+        inset 0px -12px 24px rgba(255, 255, 255, 0.55),
+        0 22px 50px -6px var(--slime-glow, rgba(56, 189, 248, 0.65));
+    }
+
+    /* 蓬鬆刮鬍泡基底：強化雲朵奶油柔霧感 */
+    .slime-base-fluffy {
+      background-image: 
+        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.45) 35%, transparent 65%),
+        linear-gradient(165deg, rgba(255, 255, 255, 0.55) 0%, transparent 60%, rgba(0, 0, 0, 0.15) 100%);
+      box-shadow:
+        inset 16px 22px 38px rgba(255, 255, 255, 0.95),
+        inset -14px -18px 30px rgba(0, 0, 0, 0.18),
+        0 18px 40px -6px var(--slime-glow, rgba(255, 255, 255, 0.5));
+    }
+
+    .slime-poke-active {
+      animation: slimeJellyPoke 0.65s cubic-bezier(0.25, 1.5, 0.5, 1) forwards !important;
+    }
+
+    /* 水滴史萊姆左上角的主水光反射斑點 */
+    .slime-Droplet-Specular {
+      position: absolute;
+      top: 14%;
+      left: 19%;
+      width: 44px;
+      height: 22px;
+      background: rgba(255, 255, 255, 0.82);
+      border-radius: 50%;
+      transform: rotate(-32deg);
+      filter: blur(1px);
+      pointer-events: none;
+    }
+
+    .slime-Droplet-Specular-Small {
+      position: absolute;
+      top: 28%;
+      left: 14%;
+      width: 14px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* 史萊姆底部隨呼吸縮放的地面投影 */
+    @keyframes slimeShadowPulse {
+      0%, 100% { transform: scaleX(1) scaleY(1); opacity: 0.55; }
+      20%      { transform: scaleX(1.09) scaleY(1.05); opacity: 0.68; }
+      40%      { transform: scaleX(0.91) scaleY(0.92); opacity: 0.42; }
+      60%      { transform: scaleX(1.12) scaleY(1.08); opacity: 0.72; }
+      80%      { transform: scaleX(0.95) scaleY(0.96); opacity: 0.48; }
+    }
+
+    .slime-ground-shadow {
+      width: 190px;
+      height: 28px;
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, transparent 72%);
+      border-radius: 50%;
+      animation: slimeShadowPulse 3.4s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    }
+
+    /* 史萊姆眨眼動畫 */
+    @keyframes slimeBlink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96% { transform: scaleY(0.08); }
+    }
+
+    .slime-eye {
+      animation: slimeBlink 4.2s infinite;
+    }
+
+    /* 史萊姆內部懸浮添加物微漂浮動畫 */
+    @keyframes innerFloat {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-7px) rotate(18deg); }
+    }
+
+    .slime-inner-particle {
+      animation: innerFloat 2.8s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="lab-grid-bg antialiased selection:bg-fuchsia-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // =========================================================================
+    // 🎵 Web Audio API 實驗室與 Q 彈果凍音效合成器（零外部音檔依賴）
+    // =========================================================================
+    const LabSound = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      // 材料丟入鍋爐的「噗通 / 水滴」音效
+      playDrop() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(180, now + 0.18);
+          osc.frequency.exponentialRampToValueAtTime(680, now + 0.32);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.36);
+        } catch (e) {}
+      },
+      // 攪拌鍋爐 3 秒劇烈搖晃冒泡音效
+      playStirring3Seconds() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          // 連續產生 12 個咕嚕咕嚕魔法氣泡音，持續 3 秒
+          for (let i = 0; i < 12; i++) {
+            const start = now + i * 0.24;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = i % 2 === 0 ? 'triangle' : 'sine';
+            const baseFreq = 220 + (i * 35) + Math.random() * 120;
+            osc.frequency.setValueAtTime(baseFreq, start);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.65, start + 0.18);
+            gain.gain.setValueAtTime(0.15, start);
+            gain.gain.exponentialRampToValueAtTime(0.008, start + 0.2);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(start);
+            osc.stop(start + 0.22);
+          }
+        } catch (e) {}
+      },
+      // 史萊姆合成誕生音效
+      playSpawnFanfare() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const start = this.ctx.currentTime + idx * 0.09;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, start);
+            gain.gain.setValueAtTime(0.2, start);
+            gain.gain.exponentialRampToValueAtTime(0.008, start + 0.38);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(start);
+            osc.stop(start + 0.4);
+          });
+        } catch (e) {}
+      },
+      // 戳史萊姆「ㄉㄨㄞ～」果凍音效
+      playJellyBoing() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(240, now);
+          osc.frequency.exponentialRampToValueAtTime(580, now + 0.12);
+          osc.frequency.exponentialRampToValueAtTime(310, now + 0.25);
+          osc.frequency.exponentialRampToValueAtTime(460, now + 0.38);
+          gain.gain.setValueAtTime(0.26, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.42);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.44);
+        } catch (e) {}
+      }
+    };
+
+    // =========================================================================
+    // 🧪 實驗桌三大區材料資料庫 (Bases, Pigments, Additives)
+    // =========================================================================
+    const BASE_OPTIONS = [
+      {
+        id: 'clear_glue',
+        name: '透明膠水',
+        subtitle: '晶瑩剔透・果凍水光感',
+        emoji: '💧',
+        styleType: 'clear',
+        previewColor: '#7DD3FC',
+        desc: '高純度PVA透明膠水，能折射出如寶石果凍般的水潤光澤！'
+      },
+      {
+        id: 'shaving_foam',
+        name: '蓬鬆刮鬍泡',
+        subtitle: '雲朵棉花糖・超軟綿觸感',
+        emoji: '☁️',
+        styleType: 'fluffy',
+        previewColor: '#F8FAFC',
+        desc: '注入滿滿細緻空氣泡沫，摸起來像剛出爐的舒芙蕾雲朵！'
+      },
+      {
+        id: 'glow_gel',
+        name: '夜光星雲膠',
+        subtitle: '深海生物光・奇幻微光',
+        emoji: '🌌',
+        styleType: 'clear',
+        previewColor: '#6EE7B7',
+        desc: '富含磷光離子的實驗室秘製膠體，在暗處會散發神秘微光！'
+      },
+      {
+        id: 'clay_butter',
+        name: '奶油輕黏土',
+        subtitle: '絲滑抹醬・極致延展性',
+        emoji: '🧈',
+        styleType: 'fluffy',
+        previewColor: '#FDE68A',
+        desc: '結合超輕黏土與膠水，拉開時有奶油般滑順療癒的紋理！'
+      }
+    ];
+
+    const PIGMENT_OPTIONS = [
+      {
+        id: 'red',
+        name: '紅',
+        fullName: '緋紅魔力色素',
+        emoji: '🔴',
+        hex: '#FF3B5C',
+        rgb: [255, 59, 92],
+        badgeClass: 'from-rose-500 to-red-600 border-rose-300'
+      },
+      {
+        id: 'yellow',
+        name: '黃',
+        fullName: '閃耀檸檬色素',
+        emoji: '🟡',
+        hex: '#FFD60A',
+        rgb: [255, 214, 10],
+        badgeClass: 'from-amber-400 to-yellow-500 border-yellow-200'
+      },
+      {
+        id: 'blue',
+        name: '藍',
+        fullName: '深海電光藍色素',
+        emoji: '🔵',
+        hex: '#00A8FF',
+        rgb: [0, 168, 255],
+        badgeClass: 'from-sky-400 to-blue-600 border-sky-200'
+      }
+    ];
+
+    const ADDITIVE_OPTIONS = [
+      {
+        id: 'glitter',
+        name: '亮片',
+        subtitle: '鑽石星塵折射',
+        emoji: '✨',
+        particleSymbol: '✦',
+        color: '#FDE047'
+      },
+      {
+        id: 'mini_stars',
+        name: '小星星',
+        subtitle: '流星許願碎片',
+        emoji: '⭐',
+        particleSymbol: '★',
+        color: '#FEF08A'
+      },
+      {
+        id: 'pearls',
+        name: '珍珠',
+        subtitle: 'Q彈波霸幻彩珠',
+        emoji: '🫧',
+        particleSymbol: '●',
+        color: '#F5D0FE'
+      },
+      {
+        id: 'foam_beads',
+        name: '脆脆保麗龍球',
+        subtitle: 'ASMR 捏捏爆音感',
+        emoji: '🔮',
+        particleSymbol: '◉',
+        color: '#A5F3FC'
+      },
+      {
+        id: 'jelly_cubes',
+        name: '果凍方塊',
+        subtitle: '雙重Q彈咬勁塊',
+        emoji: '🧊',
+        particleSymbol: '■',
+        color: '#C4B5FD'
+      }
+    ];
+
+    // =========================================================================
+    // 🎨 三原色複選即時混色演算法 (支援紅、黃、藍任意組合)
+    // =========================================================================
+    function computeMixedColor(selectedPigmentIds, selectedBase) {
+      const hasRed = selectedPigmentIds.includes('red');
+      const hasYellow = selectedPigmentIds.includes('yellow');
+      const hasBlue = selectedPigmentIds.includes('blue');
+
+      if (hasRed && hasYellow && hasBlue) {
+        return { hex: '#8B5CF6', name: '混沌星雲幻彩紫 (紅+黃+藍三色融合)' };
+      }
+      if (hasRed && hasYellow) {
+        return { hex: '#FF7B24', name: '烈焰蜜桃橘 (紅+黃混色)' };
+      }
+      if (hasRed && hasBlue) {
+        return { hex: '#B833FF', name: '魔幻霓虹紫 (紅+藍混色)' };
+      }
+      if (hasYellow && hasBlue) {
+        return { hex: '#10D988', name: '翡翠薄荷綠 (黃+藍混色)' };
+      }
+      if (hasRed) {
+        return { hex: '#FF3B6B', name: '寶石草莓紅 (單色紅)' };
+      }
+      if (hasYellow) {
+        return { hex: '#FFD60A', name: '陽光檸檬黃 (單色黃)' };
+      }
+      if (hasBlue) {
+        return { hex: '#18B2FF', name: '冰川海洋藍 (單色藍)' };
+      }
+
+      // 若未選色素，依基底決定透明/純白原色
+      if (selectedBase?.id === 'shaving_foam') {
+        return { hex: '#E2E8F0', name: '純白雲朵奶霜色 (無色素)' };
+      }
+      if (selectedBase?.id === 'glow_gel') {
+        return { hex: '#34D399', name: '夜光幽靈綠 (無色素)' };
+      }
+      if (selectedBase?.id === 'clay_butter') {
+        return { hex: '#FCD34D', name: '香草奶油黃 (無色素)' };
+      }
+      return { hex: '#7DD3FC', name: '冰晶透明水色 (無色素)' };
+    }
+
+    // =========================================================================
+    // 🤖 Gemini API 設定與智慧提取器
+    // =========================================================================
+    const DEFAULT_API_KEY = 'AIzaSyDJgkmPC3ZSwPc_Sihyi38pqRwqrHP1-bI';
+
+    const SYSTEM_PROMPT = `你是一個史萊姆圖鑑生成器。玩家會提供基底、顏色與添加物。請根據這些物理條件，發揮創意合成出一隻史萊姆，並以 JSON 格式回傳：{"slimeName": "史萊姆的名字，要很中二或可愛", "appearance": "外觀描述，並請給我一個對應的 HEX 顏色碼", "texture": "摸起來的觸感描述", "specialBehavior": "這隻史萊姆的特殊行為，例如會黏在天花板"}。`;
+
+    function extractHexFromResponse(parsedObj, fallbackHex) {
+      const hexRegex = /#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/;
+      if (!parsedObj || typeof parsedObj !== 'object') return fallbackHex;
+
+      // 優先檢查 appearance 或其他欄位中的 #RRGGBB
+      for (const key of ['appearance', 'hexColor', 'color', 'slimeName']) {
+        if (typeof parsedObj[key] === 'string') {
+          const match = parsedObj[key].match(hexRegex);
+          if (match) return match[0].toUpperCase();
+        }
+      }
+      for (const val of Object.values(parsedObj)) {
+        if (typeof val === 'string') {
+          const match = val.match(hexRegex);
+          if (match) return match[0].toUpperCase();
+        }
+      }
+      return fallbackHex;
+    }
+
+    // 當離線或 API 異常時的創意保底生成器（確保 100% 永不卡關）
+    function generateCreativeFallbackSlime(base, pigments, additives, mixedInfo) {
+      const pigmentNames = pigments.length > 0 ? pigments.map(p => p.name).join('+') : '透明無染';
+      const additiveNames = additives.length > 0 ? additives.map(a => a.name).join('與') : '純淨零雜質';
+      const namePrefixes = ['深淵星穹・', '禁忌煉金・', '超次元ㄉㄨㄞㄉㄨㄞ・', '宇宙軟萌・', '量子果凍・'];
+      const nameSuffixes = ['幻影史萊姆王', '星塵果凍獸', '棉花糖小妖精', '混沌黏黏怪', '極光水滴龍'];
+      const pickPrefix = namePrefixes[(base.name.length + pigments.length) % namePrefixes.length];
+      const pickSuffix = nameSuffixes[(additives.length + pigments.length * 2) % nameSuffixes.length];
+
+      return {
+        slimeName: `${pickPrefix}${base.name.slice(0, 2)}${pickSuffix}`,
+        appearance: `通體散發著迷人的【${mixedInfo.name}】光澤（代表色碼：${mixedInfo.hex}），內部懸浮著${additiveNames}，每次呼吸都會折射出果凍般的奇幻炫光！`,
+        texture: `結合了「${base.name}」的基底特性，剛摸下去冰涼軟Q，揉捏時帶有${additives.length > 0 ? additiveNames + '的豐富顆粒層次感' : '極致絲滑的果凍回彈感'}，讓人一捏就停不下來！`,
+        specialBehavior: `喜歡在半夜偷偷爬到螢幕邊緣隨著音樂節奏晃動，遇到喜歡的創造者時會把身體攤成愛心形狀並吐出閃亮泡泡！`,
+        hexColor: mixedInfo.hex
+      };
+    }
+
+    // =========================================================================
+    // 🎮 主遊戲元件 (CrazySlimeLabApp)
+    // =========================================================================
+    function CrazySlimeLabApp() {
+      // 玩家目前選擇的材料狀態
+      const [selectedBase, setSelectedBase] = useState(BASE_OPTIONS[0]);
+      const [selectedPigments, setSelectedPigments] = useState(['red', 'blue']); // 預設示範紅+藍混色
+      const [selectedAdditives, setSelectedAdditives] = useState(['glitter', 'mini_stars']);
+
+      // 動畫與合成階段狀態
+      const [droppingItems, setDroppingItems] = useState([]); // 正在掉入鍋爐的動畫粒子
+      const [cauldronImpact, setCauldronImpact] = useState(false); // 鍋爐被投入材料時的震動
+      const [splashActive, setSplashActive] = useState(false); // 液面水花特效
+      const [isStirring, setIsStirring] = useState(false); // 是否正在進行 3 秒劇烈攪拌動畫
+      const [stirCountdown, setStirCountdown] = useState(3.0); // 3 秒攪拌計時器
+      const [isCallingAI, setIsCallingAI] = useState(false); // 攪拌完成後等待 Gemini API 回應
+
+      // 生成結果與圖鑑紀錄
+      const [currentSlime, setCurrentSlime] = useState(null);
+      const [slimeHistory, setSlimeHistory] = useState([]);
+      const [pokeAnimating, setPokeAnimating] = useState(false);
+      const [pokeReactionText, setPokeReactionText] = useState('');
+
+      // API Key 設定狀態（預設帶入使用者提供的 API Key）
+      const [apiKey, setApiKey] = useState(() => {
+        return localStorage.getItem('CRAZY_SLIME_GEMINI_KEY') || DEFAULT_API_KEY;
+      });
+      const [showApiModal, setShowApiModal] = useState(false);
+      const [apiStatusMsg, setApiStatusMsg] = useState('');
+
+      const resultSectionRef = useRef(null);
+
+      // 計算目前鍋爐混色結果
+      const mixedColorInfo = useMemo(() => {
+        return computeMixedColor(selectedPigments, selectedBase);
+      }, [selectedPigments, selectedBase]);
+
+      // 觸發「材料掉入大鍋爐」的 CSS 動畫與水花特效
+      const triggerDropAnimation = (label, emoji, colorHex) => {
+        LabSound.playDrop();
+        const dropId = Date.now() + Math.random();
+        // 隨機起始水平偏移，讓拋物線更生動
+        const randomStartX = Math.floor(Math.random() * 140) - 70;
+
+        setDroppingItems(prev => [
+          ...prev,
+          { id: dropId, label, emoji, colorHex, startX: `${randomStartX}px` }
+        ]);
+
+        // 約 0.48 秒材料抵達鍋爐口時觸發水花與鍋爐回彈
+        setTimeout(() => {
+          setSplashActive(true);
+          setCauldronImpact(true);
+          setTimeout(() => {
+            setSplashActive(false);
+            setCauldronImpact(false);
+          }, 450);
+        }, 460);
+
+        // 0.75 秒後移除掉落粒子
+        setTimeout(() => {
+          setDroppingItems(prev => prev.filter(item => item.id !== dropId));
+        }, 750);
+      };
+
+      // 1. 選擇基底（單選）
+      const handleSelectBase = (baseObj) => {
+        if (isStirring || isCallingAI) return;
+        setSelectedBase(baseObj);
+        triggerDropAnimation(baseObj.name, baseObj.emoji, baseObj.previewColor);
+      };
+
+      // 2. 選擇色素（紅、黃、藍 可複選混色）
+      const handleTogglePigment = (pigmentObj) => {
+        if (isStirring || isCallingAI) return;
+        setSelectedPigments(prev => {
+          const exists = prev.includes(pigmentObj.id);
+          if (exists) {
+            return prev.filter(id => id !== pigmentObj.id);
+          } else {
+            triggerDropAnimation(`${pigmentObj.name}色素`, pigmentObj.emoji, pigmentObj.hex);
+            return [...prev, pigmentObj.id];
+          }
+        });
+      };
+
+      // 3. 選擇添加物（亮片、小星星、珍珠等 可複選）
+      const handleToggleAdditive = (additiveObj) => {
+        if (isStirring || isCallingAI) return;
+        setSelectedAdditives(prev => {
+          const exists = prev.includes(additiveObj.id);
+          if (exists) {
+            return prev.filter(id => id !== additiveObj.id);
+          } else {
+            triggerDropAnimation(additiveObj.name, additiveObj.emoji, additiveObj.color);
+            return [...prev, additiveObj.id];
+          }
+        });
+      };
+
+      // 呼叫 Gemini API 生成史萊姆圖鑑
+      const callGeminiSlimeGenerator = async (baseObj, pigmentObjs, additiveObjs, mixedInfo) => {
+        const colorDesc = pigmentObjs.length > 0
+          ? `${pigmentObjs.map(p => p.name).join(' + ')}（混色效果：${mixedInfo.name}，參考色碼 ${mixedInfo.hex}）`
+          : `無添加色素（呈現基底原色：${mixedInfo.name}，參考色碼 ${mixedInfo.hex}）`;
+
+        const additiveDesc = additiveObjs.length > 0
+          ? additiveObjs.map(a => a.name).join('、')
+          : '無額外添加物（純粹基底質地）';
+
+        const userPromptText = `玩家在『瘋狂史萊姆實驗室』選擇的合成配方如下：
+- 基底：${baseObj.name}（特性：${baseObj.subtitle}）
+- 顏色（色素混色）：${colorDesc}
+- 添加物：${additiveDesc}
+
+請根據這些物理條件，發揮創意合成出一隻史萊姆，並在 appearance 欄位中提供外觀描述與一個對應的 6 碼 HEX 顏色碼（例如 ${mixedInfo.hex}）。請嚴格以 JSON 格式回傳：
+{"slimeName": "史萊姆的名字，要很中二或可愛", "appearance": "外觀描述，並請給我一個對應的 HEX 顏色碼", "texture": "摸起來的觸感描述", "specialBehavior": "這隻史萊姆的特殊行為，例如會黏在天花板"}`;
+
+        // 優先嘗試直接呼叫 Gemini REST API (支援多個模型自動切換)
+        const cleanKey = (apiKey || DEFAULT_API_KEY).trim();
+        const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+        for (const modelName of modelsToTry) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: {
+                  parts: [{ text: SYSTEM_PROMPT }]
+                },
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [{ text: userPromptText }]
+                  }
+                ],
+                generationConfig: {
+                  temperature: 0.92,
+                  maxOutputTokens: 800,
+                  responseMimeType: 'application/json'
+                }
+              })
+            });
+
+            if (!response.ok) {
+              continue;
+            }
+
+            const data = await response.json();
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (!rawText) continue;
+
+            const cleanedJson = rawText.replace(/```json|```/gi, '').trim();
+            const parsed = JSON.parse(cleanedJson);
+
+            const extractedHex = extractHexFromResponse(parsed, mixedInfo.hex);
+            const finalAppearance = parsed.appearance
+              ? (parsed.appearance.includes('#') ? parsed.appearance : `${parsed.appearance} (HEX色碼：${extractedHex})`)
+              : `閃耀著迷人的果凍光澤 (${extractedHex})`;
+
+            setApiStatusMsg(`✨ 由 Gemini AI (${modelName}) 即時合成！`);
+            return {
+              slimeName: parsed.slimeName || '星塵幻影史萊姆',
+              appearance: finalAppearance,
+              texture: parsed.texture || 'Q彈水潤的果凍觸感',
+              specialBehavior: parsed.specialBehavior || '會在實驗桌上開心彈跳並吐出七彩泡泡',
+              hexColor: extractedHex
+            };
+          } catch (err) {
+            // 繼續嘗試下一個模型或本地後端
+          }
+        }
+
+        // 若前端直接呼叫受阻，嘗試透過本地 `/api/gemini` 代理路由呼叫
+        try {
+          const proxyRes = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              base: baseObj.name,
+              colors: pigmentObjs.map(p => p.name),
+              additives: additiveObjs.map(a => a.name),
+              promptText: userPromptText,
+              fallbackHex: mixedInfo.hex,
+              customApiKey: cleanKey
+            })
+          });
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json();
+            if (proxyData.success && proxyData.slime) {
+              setApiStatusMsg(`✨ 由後端代理 Gemini AI (${proxyData.model}) 即時合成！`);
+              return proxyData.slime;
+            }
+          }
+        } catch (proxyErr) {
+          // 忽略並使用內建保底生成
+        }
+
+        setApiStatusMsg('⚡ 使用實驗室量子合成引擎生成（離線保底模式）');
+        return generateCreativeFallbackSlime(baseObj, pigmentObjs, additiveObjs, mixedInfo);
+      };
+
+      // 點擊『開始攪拌』按鈕：執行 3 秒劇烈晃動動畫 + 呼叫 Gemini API
+      const handleStartStirring = () => {
+        if (isStirring || isCallingAI) return;
+
+        setIsStirring(true);
+        setStirCountdown(3.0);
+        setApiStatusMsg('');
+        LabSound.playStirring3Seconds();
+
+        const startTime = Date.now();
+        const countdownTimer = setInterval(() => {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const remaining = Math.max(0, 3.0 - elapsed);
+          setStirCountdown(remaining);
+        }, 80);
+
+        // 嚴格持續 3 秒 (3000ms) 鍋爐劇烈晃動動畫
+        setTimeout(async () => {
+          clearInterval(countdownTimer);
+          setStirCountdown(0);
+          setIsStirring(false);
+          setIsCallingAI(true);
+
+          const pigmentObjs = PIGMENT_OPTIONS.filter(p => selectedPigments.includes(p.id));
+          const additiveObjs = ADDITIVE_OPTIONS.filter(a => selectedAdditives.includes(a.id));
+
+          const generatedSlime = await callGeminiSlimeGenerator(
+            selectedBase,
+            pigmentObjs,
+            additiveObjs,
+            mixedColorInfo
+          );
+
+          const enrichedSlime = {
+            ...generatedSlime,
+            id: 'slime_' + Date.now(),
+            createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            recipe: {
+              base: selectedBase,
+              pigments: pigmentObjs,
+              additives: additiveObjs,
+              mixedColorName: mixedColorInfo.name
+            }
+          };
+
+          setIsCallingAI(false);
+          setCurrentSlime(enrichedSlime);
+          setSlimeHistory(prev => [enrichedSlime, ...prev.slice(0, 11)]);
+          LabSound.playSpawnFanfare();
+
+          // 自動平滑捲動至結果展示區
+          setTimeout(() => {
+            if (resultSectionRef.current) {
+              resultSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 150);
+        }, 3000);
+      };
+
+      // 點擊 Q 彈史萊姆的互動回饋
+      const handlePokeSlime = () => {
+        LabSound.playJellyBoing();
+        setPokeAnimating(false);
+        setTimeout(() => setPokeAnimating(true), 10);
+
+        const reactions = [
+          'ㄉㄨㄞ～♪ 好癢喔！',
+          '噗啾！果凍彈力 100%！',
+          '咕嚕咕嚕～別戳我的肚子啦 ✨',
+          'Q彈Q彈！再捏一下～',
+          '啵啵！(開心地吐出小泡泡)'
+        ];
+        setPokeReactionText(reactions[Math.floor(Math.random() * reactions.length)]);
+        setTimeout(() => setPokeAnimating(false), 680);
+      };
+
+      // 隨機配方按鈕
+      const handleRandomRecipe = () => {
+        if (isStirring || isCallingAI) return;
+        const randBase = BASE_OPTIONS[Math.floor(Math.random() * BASE_OPTIONS.length)];
+        const shuffledPigments = [...PIGMENT_OPTIONS].sort(() => 0.5 - Math.random());
+        const pigmentCount = Math.floor(Math.random() * 3) + 1;
+        const pickedPigments = shuffledPigments.slice(0, pigmentCount).map(p => p.id);
+
+        const shuffledAdditives = [...ADDITIVE_OPTIONS].sort(() => 0.5 - Math.random());
+        const additiveCount = Math.floor(Math.random() * 3) + 1;
+        const pickedAdditives = shuffledAdditives.slice(0, additiveCount).map(a => a.id);
+
+        setSelectedBase(randBase);
+        setSelectedPigments(pickedPigments);
+        setSelectedAdditives(pickedAdditives);
+        triggerDropAnimation('隨機驚喜配方', '🎲', '#EC4899');
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col justify-between pb-16">
+          {/* 頂部導覽列 Header */}
+          <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/75 border-b border-purple-500/30 shadow-lg">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 via-purple-600 to-cyan-400 flex items-center justify-center text-2xl shadow-lg shadow-fuchsia-500/30 border border-white/30">
+                  🧪
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl md:text-2xl font-black tracking-wide bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-yellow-200 bg-clip-text text-transparent">
+                      瘋狂史萊姆實驗室
+                    </h1>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/40 text-fuchsia-200 font-bold">
+                      AI 煉金圖鑑版
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    自由調配基底、三原色混色與魔法添加物，召喚專屬 Q 彈果凍史萊姆！
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={handleRandomRecipe}
+                  disabled={isStirring || isCallingAI}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-400/40 text-xs md:text-sm font-bold text-indigo-100 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                >
+                  <span>🎲</span> 隨機驚喜配方
+                </button>
+                <button
+                  onClick={() => setShowApiModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-400/40 text-xs md:text-sm font-bold text-emerald-300 flex items-center gap-1.5 transition active:scale-95"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>🔑 API 已連線</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* 主實驗室舞台 Main Content */}
+          <main className="max-w-7xl mx-auto w-full px-4 pt-6 space-y-8">
+
+            {/* ===============================================================
+                上半部：實驗桌三大材料選擇區 + 中央合成大鍋爐
+               =============================================================== */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+              {/* 左側欄位：區段 1『基底』+ 區段 2『色素 (可複選混色)』 */}
+              <div className="lg:col-span-4 flex flex-col gap-5">
+                {/* 選擇區 1：基底 (Base) */}
+                <section className="rounded-3xl bg-slate-900/80 backdrop-blur-md border-2 border-cyan-500/35 p-5 shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-black text-cyan-300 flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-base">1</span>
+                      選擇基底 <span className="text-xs font-normal text-slate-400">(單選・決定質地)</span>
+                    </h2>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-200 border border-cyan-500/30 font-bold">
+                      目前：{selectedBase.name}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {BASE_OPTIONS.map(base => {
+                      const isSelected = selectedBase.id === base.id;
+                      return (
+                        <button
+                          key={base.id}
+                          onClick={() => handleSelectBase(base)}
+                          disabled={isStirring || isCallingAI}
+                          className={`group relative text-left p-3.5 rounded-2xl border-2 transition-all duration-200 ${
+                            isSelected
+                              ? 'bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border-cyan-300 shadow-lg shadow-cyan-500/25 scale-[1.02]'
+                              : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-cyan-500/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-2xl group-hover:scale-125 transition-transform">{base.emoji}</span>
+                            {isSelected && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950 font-black">
+                                已投入
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-sm text-white">{base.name}</div>
+                          <div className="text-[11px] text-cyan-200/80 mt-0.5">{base.subtitle}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* 選擇區 2：色素 (紅、黃、藍，可複選混色) */}
+                <section className="rounded-3xl bg-slate-900/80 backdrop-blur-md border-2 border-fuchsia-500/35 p-5 shadow-xl flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-lg font-black text-fuchsia-300 flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-fuchsia-500/20 border border-fuchsia-400/40 flex items-center justify-center text-base">2</span>
+                        調配色素 <span className="text-xs font-normal text-slate-400">(可複選混色！)</span>
+                      </h2>
+                      {selectedPigments.length > 0 && (
+                        <button
+                          onClick={() => setSelectedPigments([])}
+                          disabled={isStirring || isCallingAI}
+                          className="text-xs text-slate-400 hover:text-rose-300 underline"
+                        >
+                          清空色素
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-300 mb-3.5">
+                      點擊紅、黃、藍自由疊加混色（例如：紅+藍＝霓虹紫、紅+黃＝蜜桃橘）！
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      {PIGMENT_OPTIONS.map(pigment => {
+                        const isSelected = selectedPigments.includes(pigment.id);
+                        return (
+                          <button
+                            key={pigment.id}
+                            onClick={() => handleTogglePigment(pigment)}
+                            disabled={isStirring || isCallingAI}
+                            className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 ${
+                              isSelected
+                                ? `bg-gradient-to-b ${pigment.badgeClass} text-white shadow-lg scale-105`
+                                : 'bg-slate-800/70 hover:bg-slate-800 border-slate-700 text-slate-200'
+                            }`}
+                          >
+                            <span className="text-3xl drop-shadow">{pigment.emoji}</span>
+                            <span className="font-black text-base">{pigment.name}色</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              isSelected ? 'bg-black/30 text-white' : 'bg-slate-700 text-slate-300'
+                            }`}>
+                              {isSelected ? '✓ 已加入' : '+ 點擊加入'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 即時混色預覽條 */}
+                  <div className="mt-4 p-3 rounded-2xl bg-slate-950/80 border border-white/10 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-8 h-8 rounded-xl border-2 border-white/60 shadow-inner transition-colors duration-500"
+                        style={{ backgroundColor: mixedColorInfo.hex }}
+                      />
+                      <div>
+                        <div className="text-[11px] text-slate-400">目前鍋爐混色預覽</div>
+                        <div className="text-xs font-black text-white">{mixedColorInfo.name}</div>
+                      </div>
+                    </div>
+                    <code className="text-xs font-mono px-2 py-1 rounded bg-white/10 text-cyan-200">
+                      {mixedColorInfo.hex}
+                    </code>
+                  </div>
+                </section>
+              </div>
+
+              {/* 中央欄位：合成大鍋爐 + 掉落動畫舞台 + 開始攪拌按鈕 */}
+              <div className="lg:col-span-4 flex flex-col items-center justify-between rounded-3xl bg-gradient-to-b from-slate-900/90 via-indigo-950/80 to-slate-900/90 border-2 border-purple-400/40 p-6 shadow-2xl relative overflow-hidden">
+                {/* 背景魔法光暈 */}
+                <div
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-3xl opacity-30 pointer-events-none transition-colors duration-700"
+                  style={{ backgroundColor: mixedColorInfo.hex }}
+                />
+
+                <div className="text-center z-10">
+                  <span className="inline-block text-xs font-black tracking-widest uppercase px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-200 mb-1">
+                    Synthesis Cauldron
+                  </span>
+                  <h2 className="text-xl font-black text-white">
+                    🔮 煉金合成大鍋爐
+                  </h2>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    點擊左右兩側材料投入鍋爐，選好後按下開始攪拌！
+                  </p>
+                </div>
+
+                {/* 鍋爐本體與上方掉落動畫區 */}
+                <div className="relative w-full h-72 flex items-center justify-center my-2">
+                  {/* 正在掉入鍋爐的材料粒子 (CSS Drop Animation) */}
+                  <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center">
+                    {droppingItems.map(item => (
+                      <div
+                        key={item.id}
+                        style={{ '--start-x': item.startX }}
+                        className="animate-ingredient-drop absolute flex flex-col items-center"
+                      >
+                        <div
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-xl border-2 border-white"
+                          style={{ backgroundColor: item.colorHex }}
+                        >
+                          {item.emoji}
+                        </div>
+                        <span className="mt-1 px-2 py-0.5 rounded-full bg-slate-950/90 text-[11px] font-black text-white border border-white/30 whitespace-nowrap">
+                          + {item.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 材料掉入瞬間的水花飛濺環 */}
+                  {splashActive && (
+                    <div
+                      className="animate-splash-ring absolute top-1/3 left-1/2 w-40 h-16 rounded-full border-4 pointer-events-none z-20"
+                      style={{ borderColor: mixedColorInfo.hex }}
+                    />
+                  )}
+
+                  {/* 大鍋爐容器 (含 3 秒劇烈晃動動畫或投入回彈動畫) */}
+                  <div
+                    className={`relative z-10 flex flex-col items-center transition-transform ${
+                      isStirring
+                        ? 'animate-cauldron-violent-3s'
+                        : cauldronImpact
+                        ? 'animate-cauldron-impact'
+                        : ''
+                    }`}
+                  >
+                    {/* 攪拌棒 (攪拌中顯示高速晃動) */}
+                    <div
+                      className={`w-4 h-28 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 border-2 border-amber-100 shadow-lg -mb-8 z-10 origin-bottom transition-transform duration-300 ${
+                        isStirring ? 'rotate-12 translate-x-4 scale-110' : '-rotate-12 -translate-x-6'
+                      }`}
+                    />
+
+                    {/* 鍋爐開口鍋唇 (Cauldron Rim) */}
+                    <div className="w-56 h-10 rounded-full bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 border-4 border-slate-400 shadow-lg relative z-20 overflow-hidden flex items-center justify-center">
+                      {/* 鍋口內部冒泡液面 */}
+                      <div
+                        className="animate-liquid-surface w-48 h-6 rounded-full transition-colors duration-500 shadow-inner"
+                        style={{
+                          backgroundColor: mixedColorInfo.hex,
+                          boxShadow: `0 0 20px ${mixedColorInfo.hex}`
+                        }}
+                      />
+                    </div>
+
+                    {/* 鍋爐圓肚本體 (Cauldron Belly) */}
+                    <div className="relative w-60 h-44 -mt-4 rounded-b-[110px] rounded-t-[36px] bg-gradient-to-b from-slate-800 via-slate-900 to-black border-4 border-slate-500/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col justify-end">
+                      {/* 鍋爐玻璃觀察窗與內部魔法液體 */}
+                      <div
+                        className="relative w-full transition-all duration-500 flex items-center justify-center overflow-hidden"
+                        style={{
+                          height: '78%',
+                          backgroundColor: mixedColorInfo.hex,
+                          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 45%, rgba(0,0,0,0.45) 100%)'
+                        }}
+                      >
+                        {/* 液體中上升的氣泡 */}
+                        <span
+                          className="cauldron-bubble absolute bottom-2 left-8 w-4 h-4 rounded-full bg-white/50"
+                          style={{ '--dur': isStirring ? '0.6s' : '2.1s', '--delay': '0s' }}
+                        />
+                        <span
+                          className="cauldron-bubble absolute bottom-3 left-20 w-6 h-6 rounded-full bg-white/40"
+                          style={{ '--dur': isStirring ? '0.5s' : '2.6s', '--delay': '0.4s' }}
+                        />
+                        <span
+                          className="cauldron-bubble absolute bottom-1 right-16 w-5 h-5 rounded-full bg-white/50"
+                          style={{ '--dur': isStirring ? '0.55s' : '1.9s', '--delay': '0.8s' }}
+                        />
+                        <span
+                          className="cauldron-bubble absolute bottom-4 right-8 w-3.5 h-3.5 rounded-full bg-white/60"
+                          style={{ '--dur': isStirring ? '0.45s' : '2.4s', '--delay': '1.1s' }}
+                        />
+
+                        {/* 在鍋爐液體內顯示目前已加入的圖示 */}
+                        <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 px-4">
+                          <span className="text-2xl drop-shadow">{selectedBase.emoji}</span>
+                          {selectedPigments.map(pid => {
+                            const p = PIGMENT_OPTIONS.find(x => x.id === pid);
+                            return p ? <span key={pid} className="text-xl drop-shadow">{p.emoji}</span> : null;
+                          })}
+                          {selectedAdditives.map(aid => {
+                            const a = ADDITIVE_OPTIONS.find(x => x.id === aid);
+                            return a ? <span key={aid} className="text-xl animate-bounce">{a.emoji}</span> : null;
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 鍋爐高光反射 */}
+                      <div className="absolute top-6 left-5 w-5 h-24 rounded-full bg-white/15 rotate-6 pointer-events-none" />
+                    </div>
+
+                    {/* 鍋爐底座腳 */}
+                    <div className="flex justify-between w-40 -mt-2 px-2">
+                      <div className="w-6 h-5 rounded-b-xl bg-slate-600 border-2 border-slate-400" />
+                      <div className="w-6 h-5 rounded-b-xl bg-slate-600 border-2 border-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* 攪拌時的特效文字與倒數 */}
+                  {isStirring && (
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-30 bg-fuchsia-600 text-white px-4 py-1.5 rounded-full font-black text-sm shadow-xl border-2 border-white animate-bounce whitespace-nowrap">
+                      🌪️ 劇烈攪拌融合中... {stirCountdown.toFixed(1)}s
+                    </div>
+                  )}
+
+                  {isCallingAI && (
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-30 bg-cyan-500 text-slate-950 px-4 py-1.5 rounded-full font-black text-sm shadow-xl border-2 border-white animate-pulse whitespace-nowrap">
+                      🤖 Gemini AI 正在鑑定史萊姆基因...
+                    </div>
+                  )}
+                </div>
+
+                {/* 目前配方摘要 + 『開始攪拌』大按鈕 */}
+                <div className="w-full space-y-3 z-10">
+                  <div className="p-2.5 rounded-2xl bg-slate-950/75 border border-purple-500/30 text-xs text-slate-200 flex flex-wrap items-center justify-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-200 font-bold">
+                      基底：{selectedBase.name}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-fuchsia-500/20 text-fuchsia-200 font-bold">
+                      色素：{selectedPigments.length > 0 ? selectedPigments.map(id => PIGMENT_OPTIONS.find(p => p.id === id)?.name).join('+') : '無'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-200 font-bold">
+                      添加物：{selectedAdditives.length > 0 ? selectedAdditives.map(id => ADDITIVE_OPTIONS.find(a => a.id === id)?.name).join('、') : '無'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleStartStirring}
+                    disabled={isStirring || isCallingAI}
+                    className={`w-full py-4 px-6 rounded-2xl font-black text-lg tracking-wide shadow-2xl border-2 transition-all duration-200 flex items-center justify-center gap-3 ${
+                      isStirring || isCallingAI
+                        ? 'bg-gradient-to-r from-amber-500 to-fuchsia-600 border-white text-white cursor-wait scale-[0.99]'
+                        : 'bg-gradient-to-r from-fuchsia-500 via-purple-600 to-cyan-500 hover:from-fuchsia-400 hover:to-cyan-400 border-white/80 text-white hover:scale-[1.03] active:scale-95 shadow-fuchsia-500/40'
+                    }`}
+                  >
+                    {isStirring ? (
+                      <>
+                        <span className="text-2xl animate-spin">🌀</span>
+                        <span>鍋爐劇烈搖晃攪拌中 ({stirCountdown.toFixed(1)} 秒)...</span>
+                      </>
+                    ) : isCallingAI ? (
+                      <>
+                        <span className="text-2xl animate-bounce">✨</span>
+                        <span>AI 史萊姆圖鑑生成中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl">🥄</span>
+                        <span>開始攪拌！(合成 AI 史萊姆)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 右側欄位：區段 3『添加物 (亮片、小星星、珍珠)』 */}
+              <div className="lg:col-span-4 flex flex-col gap-5">
+                <section className="rounded-3xl bg-slate-900/80 backdrop-blur-md border-2 border-amber-400/35 p-5 shadow-xl flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-base">3</span>
+                        魔法添加物 <span className="text-xs font-normal text-slate-400">(可複選)</span>
+                      </h2>
+                      {selectedAdditives.length > 0 && (
+                        <button
+                          onClick={() => setSelectedAdditives([])}
+                          disabled={isStirring || isCallingAI}
+                          className="text-xs text-slate-400 hover:text-amber-300 underline"
+                        >
+                          清空添加物
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-300 mb-4">
+                      點擊投入亮片、小星星、珍珠等配件，它們也會出現在合成後的史萊姆身體裡喔！
+                    </p>
+
+                    <div className="space-y-2.5">
+                      {ADDITIVE_OPTIONS.map(item => {
+                        const isSelected = selectedAdditives.includes(item.id);
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleToggleAdditive(item)}
+                            disabled={isStirring || isCallingAI}
+                            className={`w-full p-3.5 rounded-2xl border-2 flex items-center justify-between transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-amber-500/25 via-fuchsia-500/20 to-purple-600/25 border-amber-300 shadow-lg shadow-amber-500/15 scale-[1.01]'
+                                : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-amber-400/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-xl bg-slate-950/70 border border-white/15 flex items-center justify-center text-2xl">
+                                {item.emoji}
+                              </div>
+                              <div className="text-left">
+                                <div className="font-black text-sm text-white">{item.name}</div>
+                                <div className="text-xs text-amber-200/80">{item.subtitle}</div>
+                              </div>
+                            </div>
+                            <span className={`text-xs px-3 py-1 rounded-full font-black ${
+                              isSelected
+                                ? 'bg-amber-400 text-slate-950'
+                                : 'bg-slate-700 text-slate-300'
+                            }`}>
+                              {isSelected ? '✓ 已投入' : '+ 投入'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-2xl bg-indigo-950/60 border border-indigo-400/30 text-xs text-indigo-200 flex items-center gap-2.5">
+                    <span className="text-xl">💡</span>
+                    <span>
+                      <strong>實驗室小秘訣：</strong>不同基底搭配混色與添加物，會觸發 Gemini AI 創造出截然不同的中二或超萌史萊姆特殊行為！
+                    </span>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            {/* ===============================================================
+                下半部：AI 史萊姆生成結果展示 (純 CSS 呼吸蠕動水滴史萊姆 + 圖鑑資料)
+               =============================================================== */}
+            <section
+              ref={resultSectionRef}
+              className="rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/90 border-2 border-fuchsia-400/40 p-6 md:p-8 shadow-2xl"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📖</span>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-black text-white">
+                      AI 史萊姆生物圖鑑展示室
+                    </h2>
+                    <p className="text-xs text-slate-300">
+                      純 CSS 物理果凍渲染引擎 • 點擊史萊姆本體可進行 Q 彈戳戳互動！
+                    </p>
+                  </div>
+                </div>
+                {apiStatusMsg && (
+                  <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold">
+                    {apiStatusMsg}
+                  </span>
+                )}
+              </div>
+
+              {!currentSlime ? (
+                <div className="py-12 text-center space-y-4">
+                  <div className="inline-flex w-20 h-20 rounded-full bg-purple-500/20 border-2 border-dashed border-purple-400/50 items-center justify-center text-4xl animate-pulse">
+                    🫧
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <h3 className="text-lg font-black text-slate-200">
+                      尚未合成史萊姆！
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-1">
+                      請在上方選擇「基底」、「色素」與「添加物」，然後點擊中央的 <strong className="text-fuchsia-300">『開始攪拌！』</strong> 按鈕，召喚你的第一隻 AI 史萊姆！
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                  {/* 左側：純 CSS 圓潤水滴狀 Q 彈史萊姆舞台 */}
+                  <div className="lg:col-span-5 flex flex-col items-center justify-center py-6 px-4 rounded-3xl bg-slate-950/75 border border-white/15 relative overflow-hidden min-h-[360px]">
+                    {/* 背景動態光暈 (套用 API 回傳的 HEX 色碼) */}
+                    <div
+                      className="absolute w-64 h-64 rounded-full blur-3xl opacity-35 pointer-events-none transition-colors duration-700"
+                      style={{ backgroundColor: currentSlime.hexColor }}
+                    />
+
+                    {/* 戳史萊姆時的對話氣泡 */}
+                    <div className="h-9 mb-2 flex items-center justify-center z-20">
+                      {pokeReactionText ? (
+                        <div className="px-4 py-1 rounded-full bg-white text-slate-900 font-black text-xs shadow-lg animate-bounce">
+                          {pokeReactionText}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          👇 試著戳戳看這隻 Q 彈果凍史萊姆！
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 純 CSS 圓潤水滴狀史萊姆本體 (套用 API 回傳 HEX 色碼與呼吸蠕動動畫) */}
+                    <div
+                      onClick={handlePokeSlime}
+                      style={{
+                        '--slime-color': currentSlime.hexColor,
+                        '--slime-glow': `${currentSlime.hexColor}99`
+                      }}
+                      className={`slime-droplet-body z-10 flex flex-col items-center justify-center select-none ${
+                        currentSlime.recipe?.base?.styleType === 'fluffy'
+                          ? 'slime-base-fluffy'
+                          : 'slime-base-clear'
+                      } ${pokeAnimating ? 'slime-poke-active' : ''}`}
+                      title="點擊戳戳史萊姆！"
+                    >
+                      {/* 果凍水滴高光反光層 */}
+                      <div className="slime-Droplet-Specular" />
+                      <div className="slime-Droplet-Specular-Small" />
+
+                      {/* 史萊姆內部懸浮的添加物粒子 (亮片、小星星、珍珠等) */}
+                      <div className="absolute inset-4 overflow-hidden rounded-full pointer-events-none">
+                        {currentSlime.recipe?.additives?.map((addObj, idx) => (
+                          <React.Fragment key={addObj.id}>
+                            <span
+                              className="slime-inner-particle absolute text-base opacity-85 select-none"
+                              style={{
+                                top: `${22 + (idx * 21) % 55}%`,
+                                left: `${18 + (idx * 29) % 62}%`,
+                                color: addObj.color,
+                                animationDelay: `${idx * 0.3}s`
+                              }}
+                            >
+                              {addObj.emoji}
+                            </span>
+                            <span
+                              className="slime-inner-particle absolute text-sm opacity-80 select-none"
+                              style={{
+                                bottom: `${16 + (idx * 19) % 45}%`,
+                                right: `${20 + (idx * 23) % 55}%`,
+                                color: addObj.color,
+                                animationDelay: `${idx * 0.55 + 0.2}s`
+                              }}
+                            >
+                              {addObj.particleSymbol}
+                            </span>
+                          </React.Fragment>
+                        ))}
+                      </div>
+
+                      {/* 史萊姆的超萌表情 (大眼睛 + 紅暈 + 微笑) */}
+                      <div className="relative z-20 flex flex-col items-center mt-4">
+                        <div className="flex items-center gap-9">
+                          {/* 左眼 */}
+                          <div className="slime-eye w-6 h-7 rounded-full bg-slate-950 flex items-start justify-start p-1 shadow-md">
+                            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                          </div>
+                          {/* 右眼 */}
+                          <div className="slime-eye w-6 h-7 rounded-full bg-slate-950 flex items-start justify-start p-1 shadow-md">
+                            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                          </div>
+                        </div>
+                        {/* 腮紅與嘴巴 */}
+                        <div className="flex items-center gap-6 -mt-1">
+                          <div className="w-4 h-2 rounded-full bg-rose-400/75 blur-[1px]" />
+                          <div className="w-4 h-2.5 border-b-4 border-slate-950 rounded-b-full" />
+                          <div className="w-4 h-2 rounded-full bg-rose-400/75 blur-[1px]" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 史萊姆底部呼吸陰影 */}
+                    <div className="slime-ground-shadow -mt-2 z-0" />
+
+                    {/* 色碼與基底標籤 */}
+                    <div className="mt-5 flex items-center gap-2 z-10">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-white/20 text-xs font-mono text-white">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-white"
+                          style={{ backgroundColor: currentSlime.hexColor }}
+                        />
+                        HEX: {currentSlime.hexColor}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-slate-900 border border-white/20 text-xs font-bold text-cyan-200">
+                        {currentSlime.recipe?.base?.emoji} {currentSlime.recipe?.base?.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 右側：AI 史萊姆圖鑑詳細資料卡 */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-fuchsia-300 tracking-wider uppercase">
+                          Slime Pokedex Entry #{slimeHistory.length}
+                        </span>
+                        <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 flex items-center gap-2">
+                          <span>✨ {currentSlime.slimeName}</span>
+                        </h3>
+                      </div>
+                      <span className="text-xs text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10">
+                        🕒 合成時間：{currentSlime.createdAt}
+                      </span>
+                    </div>
+
+                    {/* 圖鑑三大核心屬性 (appearance, texture, specialBehavior) */}
+                    <div className="grid grid-cols-1 gap-3.5">
+                      <div className="p-4 rounded-2xl bg-slate-950/70 border border-cyan-500/30">
+                        <div className="text-xs font-black text-cyan-300 mb-1 flex items-center gap-1.5">
+                          <span>🎨</span> 外觀描述與色碼 (appearance)
+                        </div>
+                        <p className="text-sm md:text-base text-slate-100 leading-relaxed">
+                          {currentSlime.appearance}
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-slate-950/70 border border-amber-500/30">
+                        <div className="text-xs font-black text-amber-300 mb-1 flex items-center gap-1.5">
+                          <span>🤚</span> 摸起來的觸感 (texture)
+                        </div>
+                        <p className="text-sm md:text-base text-slate-100 leading-relaxed">
+                          {currentSlime.texture}
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-slate-950/70 border border-fuchsia-500/30">
+                        <div className="text-xs font-black text-fuchsia-300 mb-1 flex items-center gap-1.5">
+                          <span>⚡</span> 特殊行為報告 (specialBehavior)
+                        </div>
+                        <p className="text-sm md:text-base text-slate-100 leading-relaxed">
+                          {currentSlime.specialBehavior}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 合成此史萊姆的配方紀錄 */}
+                    <div className="p-3.5 rounded-2xl bg-indigo-950/50 border border-indigo-400/25 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-indigo-200">🧪 合成配方：</span>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-cyan-200">
+                          {currentSlime.recipe?.base?.emoji} {currentSlime.recipe?.base?.name}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-fuchsia-200">
+                          🎨 {currentSlime.recipe?.pigments?.length > 0
+                            ? currentSlime.recipe.pigments.map(p => p.name).join('+')
+                            : '無色素'}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-amber-200">
+                          ✨ {currentSlime.recipe?.additives?.length > 0
+                            ? currentSlime.recipe.additives.map(a => a.name).join('、')
+                            : '無添加物'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handlePokeSlime}
+                        className="px-3 py-1.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black transition active:scale-95"
+                      >
+                        👉 捏一下史萊姆
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 歷史合成圖鑑收藏櫃 */}
+              {slimeHistory.length > 1 && (
+                <div className="mt-8 pt-6 border-t border-white/10">
+                  <h4 className="text-sm font-black text-slate-300 mb-3 flex items-center gap-2">
+                    <span>🏆</span> 實驗室歷代合成圖鑑紀錄（點擊可切換檢視）
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {slimeHistory.map(item => {
+                      const active = currentSlime?.id === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setCurrentSlime(item)}
+                          className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                            active
+                              ? 'bg-white/15 border-fuchsia-400 shadow-lg'
+                              : 'bg-slate-950/60 hover:bg-slate-900 border-white/10'
+                          }`}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-full shrink-0 border-2 border-white shadow"
+                            style={{ backgroundColor: item.hexColor }}
+                          />
+                          <div className="overflow-hidden">
+                            <div className="text-xs font-black text-white truncate">{item.slimeName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{item.hexColor}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+          </main>
+
+          {/* API Key 設定彈窗 */}
+          {showApiModal && (
+            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-900 border-2 border-purple-400/50 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>🔑</span> Gemini API 金鑰設定
+                  </h3>
+                  <button
+                    onClick={() => setShowApiModal(false)}
+                    className="text-slate-400 hover:text-white text-xl font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  目前已自動載入您的 Gemini API Key。您也可以在此更換或確認金鑰：
+                </p>
+                <input
+                  type="text"
+                  value={apiKey}
+                  onChange={e => {
+                    setApiKey(e.target.value);
+                    localStorage.setItem('CRAZY_SLIME_GEMINI_KEY', e.target.value);
+                  }}
+                  placeholder="輸入 AIzaSy... 開頭的 Gemini API Key"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-purple-500/40 text-sm font-mono text-emerald-300 focus:outline-none focus:border-fuchsia-400"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setApiKey(DEFAULT_API_KEY);
+                      localStorage.setItem('CRAZY_SLIME_GEMINI_KEY', DEFAULT_API_KEY);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
+                  >
+                    還原預設金鑰
+                  </button>
+                  <button
+                    onClick={() => setShowApiModal(false)}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-xs font-black text-white"
+                  >
+                    儲存並關閉
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<CrazySlimeLabApp />);
+  </script>
+</body>
+</html>
